@@ -1,0 +1,170 @@
+name: Android CI Example Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  SELECTEL_AUTH_TOKENS_URL: "https://cloud.api.selcloud.ru/identity/v3/auth/tokens"
+  SELECTEL_MOBILE_FARM_API_URL: "https://api.selectel.ru/mobfarm/api"
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    container:
+      image: thyrlian/android-sdk:10.0 # Prebuilt Android SDK Docker image
+    steps:
+      - name: Set up Android SDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+      - name: Update SDK
+        run: |
+          sdkmanager --update
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
+
+  setup-environment:
+    runs-on: ubuntu-latest
+    container:
+      image: thyrlian/android-sdk:10.0 # Prebuilt Android SDK Docker image
+    needs: install
+    steps:
+      - name: Obtain Authorization Token
+        id: auth
+        run: |
+          response=$(curl -s -D - -X POST \
+            --header 'Content-Type: application/json' \
+            --data-raw '{
+              "auth": {
+                "identity": {
+                  "methods": ["password"],
+                  "password": {
+                    "user": {
+                      "name": "${{ env.USER_NAME }}",
+                      "domain": { "name": "${{ env.ACCOUNT_NAME }}" },
+                      "password": "${{ env.PASSWORD }}"
+                    }
+                  }
+                },
+                "scope": {
+                  "project": {
+                    "name": "${{ env.PROJECT_NAME }}",
+                    "domain": { "name": "${{ env.ACCOUNT_NAME }}" }
+                  }
+                }
+              }
+            }' \
+            $SELECTEL_AUTH_TOKENS_URL)
+          token=$(echo "$response" | grep -i "^x-subject-token" | awk '{print $2}' | tr -d '\r')
+          echo "X_AUTH_TOKEN=$token" >> .env
+      - name: Generate ADB Key Pair
+        run: |
+          mkdir -p ~/.android
+          adb keygen ~/.android/adbkey
+          adb pubkey ~/.android/adbkey > ~/.android/adbkey.pub
+          mkdir -p adb-keys
+          cp ~/.android/adbkey adb-keys/
+          cp ~/.android/adbkey.pub adb-keys/
+      - name: Upload ADB Keys and Environment Variables
+        uses: actions/upload-artifact@v3
+        with:
+          name: adb-keys-and-env
+          path: |
+            adb-keys/
+            .env
+      - name: Store ADB Key in Mobile Farm
+        run: |
+          adb_pub_key=$(cat ~/.android/adbkey.pub)
+          curl --location "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb" \
+            --header "Content-Type: application/json" \
+            --header "X-Auth-Token: $X_AUTH_TOKEN" \
+            --data "$(jq -n --arg title "$GITHUB_RUN_ID" --arg pubKey "$adb_pub_key" \
+              '{"title": $title, "publicKey": $pubKey}')" \
+            > response.json
+          fingerprint=$(cat response.json | jq -r '.publicKey.fingerprint')
+          echo "FINGERPRINT=$fingerprint" >> .env
+
+  setup-device:
+    runs-on: ubuntu-latest
+    container:
+      image: thyrlian/android-sdk:10.0 # Prebuilt Android SDK Docker image
+    needs: setup-environment
+    steps:
+      - name: Download ADB Keys and Environment Variables
+        uses: actions/download-artifact@v3
+        with:
+          name: adb-keys-and-env
+      - name: Source Environment Variables
+        run: |
+          source .env
+      - name: Assign Device
+        run: |
+          curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices" \
+            --header "Accept: application/json" \
+            --header "X-Auth-Token: $X_AUTH_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data '{"serial": "${{ env.DEVICE_SERIAL }}", "timeout": 300000}'
+      - name: Start Remote ADB Connection
+        run: |
+          curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}/remoteConnect" \
+            --header "Accept: application/json" \
+            --header "X-Auth-Token: $X_AUTH_TOKEN" \
+            --output response_body.txt
+          remote_connect_url=$(cat response_body.txt | jq -r '.remoteConnectUrl // ""')
+          echo "UDID=$remote_connect_url" >> .env
+      - name: Upload Updated Environment Variables
+        uses: actions/upload-artifact@v3
+        with:
+          name: env-with-udid
+          path: .env
+
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: thyrlian/android-sdk:10.0 # Prebuilt Android SDK Docker image
+    needs: setup-device
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: adb-keys-and-env
+      - name: Source Environment Variables
+        run: |
+          source .env
+      - name: Connect to ADB
+        run: |
+          adb connect $UDID
+          sleep 1
+          adb devices
+      - name: Run Tests
+        run: ./gradlew connectedAndroidTest
+
+  cleanup:
+    runs-on: ubuntu-latest
+    container:
+      image: thyrlian/android-sdk:10.0 # Prebuilt Android SDK Docker image
+    needs: test
+    steps:
+      - name: Download Environment Variables
+        uses: actions/download-artifact@v3
+        with:
+          name: env-with-udid
+      - name: Source Environment Variables
+        run: |
+          source .env
+      - name: Release Device
+        run: |
+          curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}" \
+            --header "Accept: application/json" \
+            --header "X-Auth-Token: $X_AUTH_TOKEN"
+      - name: Remove ADB Key
+        run: |
+          curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/$FINGERPRINT" \
+            --header "Accept: application/json" \
+            --header "X-Auth-Token: $X_AUTH_TOKEN"
