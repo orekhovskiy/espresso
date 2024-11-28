@@ -23,8 +23,8 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl jq
+          apt-get update
+          apt-get install -y curl jq
 
       - name: Update Android SDK
         run: |
