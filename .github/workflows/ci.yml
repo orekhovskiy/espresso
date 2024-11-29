@@ -119,6 +119,8 @@ jobs:
             --output response_body.txt
           remote_connect_url=$(cat response_body.txt | jq -r '.remoteConnectUrl // ""')
           
+          cat response_body.txt
+          
           if [ -z "$fingerprint" ]; then
             echo "Error: unable to start remote ADB connect session."
             exit 1
