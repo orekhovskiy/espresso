@@ -24,9 +24,13 @@ Ensure that the device screen is not locked before running the tests. Ensure tha
 - Ensure your tests follow a clear sequence without interruption.
 ## Device Assignment:
 When assigning devices, make sure you are using the correct device serial number (provided as an environment variable `DEVICE_SERIAL`) which is present inside the project you specify by an environment variable `PROJECT_NAME`.
+## Remote Device Considerations:
+Since the device is hosted remotely, there may be a slight delay when communicating with the device, especially if the CI runner is geographically distant from the device. During ADB operations, such as adb connect and adb devices, it may take extra time for the command to reach the device and receive a response. This is normal, and you may want to adjust the timeouts in your CI pipeline if you notice delays in the connection or device readiness.
+Ensure that your CI pipeline has sufficient wait times (e.g., sleep 1) between device commands to avoid timing issues related to latency.
+
 ## Pipeline customization
 You can modify CI/CD configuration file by your needs. For example: 
 - Use multiple devices.
 - Store ADB keys inside the repository so you won't have to generate them every time during pipeline execution.
 - Add devices to a farm during pipeline execution.
-- For more information checkout our [Swagger documentation]((https://docs.selectel.ru/api/mobile-farm/).
+- For more information checkout our [Swagger documentation](https://docs.selectel.ru/api/mobile-farm/).
