@@ -61,6 +61,10 @@ jobs:
             $SELECTEL_AUTH_TOKENS_URL)
           token=$(echo "$response" | grep -i "^x-subject-token" | awk '{print $2}' | tr -d '\r')
           echo "X_AUTH_TOKEN=$token" >> .env
+          # delete me
+          echo "token obtained"
+          echo $token
+          cat .env
 
       - name: Generate ADB Key Pair
         run: |
@@ -86,6 +90,7 @@ jobs:
           echo "FINGERPRINT=$fingerprint" >> $GITHUB_ENV
 
       - name: Assign Device
+        shell: bash
         run: |
           source .env
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices" \
@@ -95,6 +100,7 @@ jobs:
             --data '{"serial": "${{ env.DEVICE_SERIAL }}", "timeout": 300000}'
 
       - name: Start Remote ADB Connection
+        shell: bash
         run: |
           source .env
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}/remoteConnect" \
@@ -106,7 +112,7 @@ jobs:
 
       - name: Connect to ADB
         run: |
-          adb connect {{ env.UDID }}
+          adb connect ${{ env.UDID }}
           sleep 1
           adb devices
 
@@ -114,6 +120,7 @@ jobs:
         run: ./gradlew connectedAndroidTest
 
       - name: Release Device
+        shell: bash
         run: |
           source .env
           curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}" \
@@ -123,6 +130,6 @@ jobs:
       - name: Remove ADB Key
         if: ${{ always() && env.FINGERPRINT != '' }}
         run: |
-          curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/{{ env.FINGERPRINT }}" \
+          curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/${{ env.FINGERPRINT }}" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN"
