@@ -173,8 +173,8 @@ jobs:
       - name: Run Tests
         # Run tests with increased timeouts
         run: ./gradlew connectedAndroidTest \ 
-          -Dorg.gradle.internal.http.socketTimeout=300000 \
-          -Dorg.gradle.internal.http.connectionTimeout=300000
+          -Dhttp.socketTimeout=300000 \
+          -Dhttp.connectionTimeout=300000
 
       - name: Release Device
         # Ensure this step runs even if previous steps fail
