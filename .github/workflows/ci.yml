@@ -20,7 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: thyrlian/android-sdk:10.0 # Prebuilt Android SDK Docker image
+
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Install dependencies
         run: |
           apt-get update
@@ -69,6 +72,7 @@ jobs:
         run: |
           # TODO: delete me
           echo $X_AUTH_TOKEN
+          echo "test"
           adb_pub_key=$(cat ~/.android/adbkey.pub)
           curl --location "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb" \
             --header "Content-Type: application/json" \
@@ -79,9 +83,6 @@ jobs:
           fingerprint=$(cat response.json | jq -r '.publicKey.fingerprint')
           echo "FINGERPRINT=$fingerprint" >> .env
 
-      - name: Source Environment Variables
-        run: |
-          source .env
       - name: Assign Device
         run: |
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices" \
