@@ -133,6 +133,7 @@ jobs:
           adb connect ${{ env.UDID }}
           sleep 1
           adb devices
+          adb shell ls -a
 
       - name: Run Tests
         run: ./gradlew connectedAndroidTest
