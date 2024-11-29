@@ -69,6 +69,7 @@ jobs:
           adb pubkey ~/.android/adbkey > ~/.android/adbkey.pub
 
       - name: Store ADB Key in Mobile Farm
+        shell: bash
         run: |
           source .env
           # TODO: delete me
