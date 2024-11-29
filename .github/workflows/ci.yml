@@ -171,10 +171,7 @@ jobs:
           echo "Device is ready"
 
       - name: Run Tests
-        # Run tests with increased timeouts
-        run: ./gradlew connectedAndroidTest \ 
-          -Dhttp.socketTimeout=300000 \
-          -Dhttp.connectionTimeout=300000
+        run: ./gradlew connectedAndroidTest
 
       - name: Release Device
         # Ensure this step runs even if previous steps fail
