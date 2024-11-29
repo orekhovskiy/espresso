@@ -70,6 +70,7 @@ jobs:
 
       - name: Store ADB Key in Mobile Farm
         run: |
+          source .env
           # TODO: delete me
           echo $X_AUTH_TOKEN
           echo "test"
@@ -81,10 +82,11 @@ jobs:
               '{"title": $title, "publicKey": $pubKey}')" \
             > response.json
           fingerprint=$(cat response.json | jq -r '.publicKey.fingerprint')
-          echo "FINGERPRINT=$fingerprint" >> .env
+          echo "FINGERPRINT=$fingerprint" >> $GITHUB_ENV
 
       - name: Assign Device
         run: |
+          source .env
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN" \
@@ -93,16 +95,17 @@ jobs:
 
       - name: Start Remote ADB Connection
         run: |
+          source .env
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}/remoteConnect" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN" \
             --output response_body.txt
           remote_connect_url=$(cat response_body.txt | jq -r '.remoteConnectUrl // ""')
-          echo "UDID=$remote_connect_url" >> .env
+          echo "UDID=$remote_connect_url" >> $GITHUB_ENV
 
       - name: Connect to ADB
         run: |
-          adb connect $UDID
+          adb connect {{ env.UDID }}
           sleep 1
           adb devices
 
@@ -111,14 +114,14 @@ jobs:
 
       - name: Release Device
         run: |
+          source .env
           curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN"
 
       - name: Remove ADB Key
-        # TODO
-        if: ${{ always() && env.FINGERPRINT }}
+        if: ${{ always() && env.FINGERPRINT != '' }}
         run: |
-          curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/$FINGERPRINT" \
+          curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/{{ env.FINGERPRINT }}" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN"
