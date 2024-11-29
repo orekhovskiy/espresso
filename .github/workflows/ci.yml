@@ -147,7 +147,9 @@ jobs:
 
       - name: Remove ADB Key
         if: ${{ always() && env.FINGERPRINT != null && env.FINGERPRINT != '' }}
+        shell: bash
         run: |
+          source .env
           curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/${{ env.FINGERPRINT }}" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN"
