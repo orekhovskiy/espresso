@@ -9,7 +9,7 @@ on:
 env:
   SELECTEL_AUTH_TOKENS_URL: "https://cloud.api.selcloud.ru/identity/v3/auth/tokens"
   SELECTEL_MOBILE_FARM_API_URL: "https://api.selectel.ru/mobfarm/api"
-  USERNAME: ${{ secrets.USER_NAME }}
+  USER_NAME: ${{ secrets.USER_NAME }}
   PASSWORD: ${{ secrets.PASSWORD }}
   PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
   ACCOUNT_NAME: ${{ secrets.ACCOUNT_NAME }}
@@ -128,7 +128,7 @@ jobs:
             --header "X-Auth-Token: $X_AUTH_TOKEN"
 
       - name: Remove ADB Key
-        if: ${{ always() && env.FINGERPRINT != '' }}
+        if: ${{ always() && env.FINGERPRINT != null && env.FINGERPRINT != '' }}
         run: |
           curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/${{ env.FINGERPRINT }}" \
             --header "Accept: application/json" \
