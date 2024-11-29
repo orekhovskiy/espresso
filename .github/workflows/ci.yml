@@ -34,6 +34,26 @@ jobs:
           sdkmanager --update
           sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
 
+      - name: Cache Gradle files
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/*.kts') }}
+
+
+      - name: Cache build outputs
+        uses: actions/cache@v3
+        with:
+          path: build/outputs
+          key: ${{ runner.os }}-build-outputs-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-outputs-
+
+      - name: Install dependencies
+        run: ./gradlew dependencies
+
       - name: Obtain Authorization Token
         run: |
           response=$(curl -s -D - -X POST \
@@ -133,7 +153,7 @@ jobs:
           adb connect ${{ env.UDID }}
           sleep 1
           adb devices
-          adb shell getprop ro.build.version.release
+          echo "Device is ready"
 
       - name: Run Tests
         run: ./gradlew connectedAndroidTest --info --stacktrace

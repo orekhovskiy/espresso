@@ -33,6 +33,10 @@ android {
     installation {
         timeOutInMs = 300_000
     }
+
+    testOptions {
+        animationsDisabled = true
+    }
 }
 
 dependencies {
