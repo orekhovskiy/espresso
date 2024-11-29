@@ -136,7 +136,7 @@ jobs:
           adb shell ls -a
 
       - name: Run Tests
-        run: ./gradlew connectedAndroidTest
+        run: ./gradlew connectedAndroidTest --info -Dadb.install.timeout=5
 
       - name: Release Device
         if: ${{ always() }}
