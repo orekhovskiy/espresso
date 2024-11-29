@@ -133,10 +133,10 @@ jobs:
           adb connect ${{ env.UDID }}
           sleep 1
           adb devices
-          adb shell ls -a
+          adb shell getprop ro.build.version.release
 
       - name: Run Tests
-        run: ./gradlew connectedAndroidTest --info -Dadb.install.timeout=5
+        run: ./gradlew connectedAndroidTest --info --stacktrace
 
       - name: Release Device
         if: ${{ always() }}
