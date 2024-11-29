@@ -17,6 +17,21 @@ Ensure you have properly set up all of the tokens used inside CI/CD file. These 
 - Mobile Farm supports only Selectel Keystone authorization tokens.
 - Provided tokens are valid for one day. Be careful when exposing tokens inside pipeline.
 - You can always refer to the [docs](https://docs.selectel.ru/api/authorization/) about Selectel authorization if you having any troubles obtaining the X-Auth-Token.
+## ADB keys  
+To successfully use ADB for remote device connections, you must meet the following requirements:
+
+1. Default Key Pair Location:
+Ensure the ADB key pair is stored in the default location:
+   - <android-home>/adbkey - for the private key
+   - <android-home>/adbkey.pub - for the public key
+2. Store Public Key in Mobile Farm:
+The ADB public key must be uploaded and stored in the Mobile Farm system. Refer to the [Swagger documentation](https://docs.selectel.ru/api/mobile-farm/#tag/ADB-keys/paths/~1api~1v2~1keys~1adb/post) for details required for storing the key.
+3. Unique Public Key:
+Each ADB public key must be unique within the Mobile Farm. Attempting to upload a duplicate key will result in errors.
+4. Device Assignment:
+The device must be assigned to the user initiating the connection within the Mobile Farm.  Refer to the [Swagger documentation](https://docs.selectel.ru/api/mobile-farm/#tag/User-devices/paths/~1api~1v1~1user~1devices/post) for details required for assigning a device to user.
+5. Remote connection:
+The device must have it's ADB remote connection session to be started. Refer to the [Swagger documentation](https://docs.selectel.ru/api/mobile-farm/#tag/User-devices/paths/~1api~1v1~1user~1devices~1%7Bserial%7D~1remoteConnect/post) for details required for starting remote connect session.
 ## Device Screen State:
 Ensure that the device screen is not locked before running the tests. Ensure that no other activities or pop-ups are blocking the device screen during testing, as this might interfere with the tests.
 ## Espresso Testing:
