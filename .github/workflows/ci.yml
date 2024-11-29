@@ -60,11 +60,16 @@ jobs:
             }' \
             $SELECTEL_AUTH_TOKENS_URL)
           token=$(echo "$response" | grep -i "^x-subject-token" | awk '{print $2}' | tr -d '\r')
+          
+          # Check if token is successfully obtained
+          if [ -z "$token" ]; then
+            echo "Error: unable to obtain X-Auth-Token."
+            exit 1
+          fi
+          
+          echo "Successfully obtained X-Auth-Token."
+          
           echo "X_AUTH_TOKEN=$token" >> .env
-          # delete me
-          echo "token obtained"
-          echo $token
-          cat .env
 
       - name: Generate ADB Key Pair
         run: |
@@ -76,9 +81,6 @@ jobs:
         shell: bash
         run: |
           source .env
-          # TODO: delete me
-          echo $X_AUTH_TOKEN
-          echo "test"
           adb_pub_key=$(cat ~/.android/adbkey.pub)
           curl --location "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb" \
             --header "Content-Type: application/json" \
@@ -87,6 +89,14 @@ jobs:
               '{"title": $title, "publicKey": $pubKey}')" \
             > response.json
           fingerprint=$(cat response.json | jq -r '.publicKey.fingerprint')
+          
+          if [ -z "$fingerprint" ]; then
+            echo "Error: ADB key was not successfully stored."
+            exit 1
+          fi
+          
+          echo "Successfully stored ADB key."
+          
           echo "FINGERPRINT=$fingerprint" >> $GITHUB_ENV
 
       - name: Assign Device
@@ -108,6 +118,14 @@ jobs:
             --header "X-Auth-Token: $X_AUTH_TOKEN" \
             --output response_body.txt
           remote_connect_url=$(cat response_body.txt | jq -r '.remoteConnectUrl // ""')
+          
+          if [ -z "$fingerprint" ]; then
+            echo "Error: unable to start remote ADB connect session."
+            exit 1
+          fi
+          
+          echo "Successfully started remote ADB connect session."
+          
           echo "UDID=$remote_connect_url" >> $GITHUB_ENV
 
       - name: Connect to ADB
