@@ -24,6 +24,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Install dependencies
         run: |
           apt-get update
@@ -31,27 +32,10 @@ jobs:
 
       - name: Update Android SDK
         run: |
-          sdkmanager --update
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
+          sdkmanager --update  # Update the SDK to ensure the latest tools are available
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"  # Install required SDK components
 
-      - name: Cache Gradle files
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/*.kts') }}
-
-
-      - name: Cache build outputs
-        uses: actions/cache@v3
-        with:
-          path: build/outputs
-          key: ${{ runner.os }}-build-outputs-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-build-outputs-
-
-      - name: Install dependencies
+      - name: Install Gradle dependencies
         run: ./gradlew dependencies
 
       - name: Obtain Authorization Token
@@ -89,27 +73,40 @@ jobs:
           
           echo "Successfully obtained X-Auth-Token."
           
-          echo "X_AUTH_TOKEN=$token" >> .env
+          # Save the token for future steps
+          echo "X_AUTH_TOKEN=$token" >> .env  
 
       - name: Generate ADB Key Pair
         run: |
-          mkdir -p ~/.android
-          adb keygen ~/.android/adbkey
+          # Create the default .android directory for storing ADB keys
+          mkdir -p ~/.android  
+
+          # Generate a new ADB key
+          adb keygen ~/.android/adbkey  
+
+          # Extract the public key
           adb pubkey ~/.android/adbkey > ~/.android/adbkey.pub
 
       - name: Store ADB Key in Mobile Farm
         shell: bash
         run: |
           source .env
+          
+          # Get the generated ADB public key
           adb_pub_key=$(cat ~/.android/adbkey.pub)
+          
+          # Send the ADB public key to the Mobile Farm API
           curl --location "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb" \
             --header "Content-Type: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN" \
             --data "$(jq -n --arg title "$GITHUB_RUN_ID" --arg pubKey "$adb_pub_key" \
               '{"title": $title, "publicKey": $pubKey}')" \
             > response.json
+          
+          # Extract fingerprint from the response
           fingerprint=$(cat response.json | jq -r '.publicKey.fingerprint')
           
+          # Check if key was successfully stored
           if [ -z "$fingerprint" ]; then
             echo "Error: ADB key was not successfully stored."
             exit 1
@@ -117,12 +114,15 @@ jobs:
           
           echo "Successfully stored ADB key."
           
+          # Save the fingerprint for future use
           echo "FINGERPRINT=$fingerprint" >> $GITHUB_ENV
 
       - name: Assign Device
         shell: bash
         run: |
           source .env
+          
+          # Assign device from the Mobile Farm
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN" \
@@ -133,45 +133,61 @@ jobs:
         shell: bash
         run: |
           source .env
+          
+          # Start remote ADB connection for the device
           curl --location --request POST "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}/remoteConnect" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN" \
             --output response_body.txt
+          
+          # Extract remote connect URL
           remote_connect_url=$(cat response_body.txt | jq -r '.remoteConnectUrl // ""')
           
+          # Check if remote connection URL was returned
           if [ -z "$remote_connect_url" ]; then
             echo "Error: unable to start remote ADB connect session."
             exit 1
           fi
           
           echo "Successfully started remote ADB connect session."
-          
+
+          # Save the unique device identifier (UDID) for future steps
           echo "UDID=$remote_connect_url" >> $GITHUB_ENV
 
       - name: Connect to ADB
         run: |
+          # Connect to the remote device via ADB
           adb connect ${{ env.UDID }}
+
+          # Wait for the connection to stabilize
           sleep 1
+
+          # Verify the device connection
           adb devices
+
           echo "Device is ready"
 
       - name: Run Tests
-        run: ./gradlew connectedAndroidTest --info --stacktrace
+        run: ./gradlew connectedAndroidTest
 
       - name: Release Device
+        # Ensure this step runs even if previous steps fail
         if: ${{ always() }}
         shell: bash
         run: |
           source .env
+          # Release the device after testing
           curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v1/user/devices/${{ env.DEVICE_SERIAL }}" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN"
 
       - name: Remove ADB Key
+        # Run if ADB key was generated and stored
         if: ${{ always() && env.FINGERPRINT != null && env.FINGERPRINT != '' }}
         shell: bash
         run: |
           source .env
+          # Remove the ADB key from Mobile Farm after testing
           curl --location --request DELETE "$SELECTEL_MOBILE_FARM_API_URL/v2/keys/adb/${{ env.FINGERPRINT }}" \
             --header "Accept: application/json" \
             --header "X-Auth-Token: $X_AUTH_TOKEN"
