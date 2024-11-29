@@ -38,6 +38,9 @@ jobs:
       - name: Install Gradle dependencies
         run: ./gradlew dependencies
 
+      - name: Build APK
+        run: ./gradlew assembleDebug
+
       - name: Obtain Authorization Token
         run: |
           response=$(curl -s -D - -X POST \
