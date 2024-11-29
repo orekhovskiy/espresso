@@ -21,9 +21,9 @@ Ensure you have properly set up all of the tokens used inside CI/CD file. These 
 To successfully use ADB for remote device connections, you must meet the following requirements:
 
 1. Default Key Pair Location:
-Ensure the ADB key pair is stored in the default location:
-   - <android-home>/adbkey - for the private key
-   - <android-home>/adbkey.pub - for the public key
+Ensure the ADB key pair is stored in the default location. For example on Ubuntu:
+   - `~/.android/adbkey` - default private key location,
+   - `~/.android/adbkey.pub` - default public key location.
 2. Store Public Key in Mobile Farm:
 The ADB public key must be uploaded and stored in the Mobile Farm system. Refer to the [Swagger documentation](https://docs.selectel.ru/api/mobile-farm/#tag/ADB-keys/paths/~1api~1v2~1keys~1adb/post) for details required for storing the key.
 3. Unique Public Key:
